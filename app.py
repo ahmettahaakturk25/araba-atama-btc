@@ -47,7 +47,9 @@ def init_state():
 
 
 init_state()
-api_key = get_api_key()
+
+# api_key her rerun'da taze alınır
+api_key = get_api_key().strip()
 
 # ─── Şifre koruması ──────────────────────────────────────────────────────────
 def check_password() -> bool:
@@ -80,7 +82,7 @@ with st.sidebar:
     st.title("🚗 Araç-Yolcu Optimizasyon")
     st.markdown("---")
     if api_key:
-        st.success("✅ API Key yüklendi")
+        st.success(f"✅ API Key yüklendi ({len(api_key)} karakter)")
     else:
         st.error("❌ GOOGLE_MAPS_API_KEY eksik")
     st.markdown("---")

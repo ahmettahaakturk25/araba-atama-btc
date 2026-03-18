@@ -168,7 +168,11 @@ def geocode_addresses(
 
     for i, row in df.iterrows():
         # Adres + İlçe + "İstanbul" birleştirerek daha doğru sonuç al
-        address_str = f"{row['Adres']}, {row['İlçe']}, İstanbul, Türkiye"
+        # Adresi temizle: \n, \t ve fazla boşlukları kaldır
+        adres_temiz = str(row["Adres"]).replace("\n", " ").replace("\t", " ").strip()
+        adres_temiz = " ".join(adres_temiz.split())  # çoklu boşlukları tek boşluğa indir
+        ilce = str(row["İlçe"]).strip()
+        address_str = f"{adres_temiz}, {ilce}, İstanbul, Türkiye"
 
         if address_str in cache:
             lat, lng = cache[address_str]
