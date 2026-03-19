@@ -25,10 +25,22 @@ load_dotenv(dotenv_path=Path(__file__).parent / ".env", override=True)
 
 # API key: önce Streamlit Secrets, yoksa .env
 def get_api_key() -> str:
+    """
+    Google Maps API key'ini önce Streamlit Secrets'tan, 
+    yoksa .env dosyasından okur.
+    
+    Streamlit Cloud'da çalışırken mutlaka Secrets kullanılmalıdır.
+    """
     try:
-        return st.secrets["GOOGLE_MAPS_API_KEY"]
-    except Exception:
-        return os.getenv("GOOGLE_MAPS_API_KEY", "")
+        key = st.secrets["GOOGLE_MAPS_API_KEY"]
+        if key and key.strip():
+            return key.strip()
+    except (KeyError, FileNotFoundError):
+        pass
+    
+    # Fallback: .env dosyasından oku (lokal geliştirme için)
+    env_key = os.getenv("GOOGLE_MAPS_API_KEY", "")
+    return env_key.strip() if env_key else ""
 
 st.set_page_config(page_title="Araç-Yolcu Optimizasyon", page_icon="🚗", layout="wide")
 
@@ -82,9 +94,10 @@ with st.sidebar:
     st.title("🚗 Araç-Yolcu Optimizasyon")
     st.markdown("---")
     if api_key:
-        st.success(f"✅ API Key yüklendi ({len(api_key)} karakter)")
+        st.success(f"✅ API Key yüklendi")
     else:
         st.error("❌ GOOGLE_MAPS_API_KEY eksik")
+        st.info("💡 Streamlit Cloud'da Settings → Secrets bölümünden ekleyin")
     st.markdown("---")
     sayfa = st.radio(
         "Sayfa",
@@ -247,6 +260,18 @@ else:
     st.subheader("3️⃣ Optimizasyonu Çalıştır")
     if not api_key:
         st.error("❌ GOOGLE_MAPS_API_KEY eksik.")
+        st.info("""
+        **Streamlit Cloud'da çalışıyorsanız:**
+        1. Sağ üstteki "⋮" (3 nokta) → Settings → Secrets
+        2. Aşağıdaki satırı ekleyin:
+        ```
+        GOOGLE_MAPS_API_KEY = "your_api_key_here"
+        ```
+        3. Save'e tıklayın
+        
+        **Lokal'de çalışıyorsanız:**
+        - `.env` dosyasına `GOOGLE_MAPS_API_KEY=your_key` ekleyin
+        """)
         st.stop()
 
     if st.button("🚀 Geocoding + Optimizasyon Çalıştır", type="primary"):

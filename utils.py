@@ -14,6 +14,13 @@ import googlemaps
 from ortools.sat.python import cp_model
 from dotenv import load_dotenv
 
+# Streamlit import'u opsiyonel (lokal test için)
+try:
+    import streamlit as st
+    HAS_STREAMLIT = True
+except ImportError:
+    HAS_STREAMLIT = False
+
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -155,6 +162,10 @@ def geocode_addresses(
     if cache is None:
         cache = {}
 
+    # API key kontrolü
+    if not api_key or api_key.strip() == "":
+        raise ValueError("Google Maps API anahtarı boş veya tanımlı değil. Streamlit Cloud'da Secrets bölümünden GOOGLE_MAPS_API_KEY ekleyin.")
+
     try:
         gmaps = googlemaps.Client(key=api_key)
     except Exception as e:
@@ -259,6 +270,10 @@ def build_cost_matrix(
             cost_matrix: {(driver_idx, passenger_idx): distance_meters}
             unassigned_passenger_indices: bölgesinde araç sahibi olmayan yolcuların index listesi
     """
+    # API key kontrolü
+    if not api_key or api_key.strip() == "":
+        raise ValueError("Google Maps API anahtarı boş veya tanımlı değil. Streamlit Cloud'da Secrets bölümünden GOOGLE_MAPS_API_KEY ekleyin.")
+
     try:
         gmaps = googlemaps.Client(key=api_key)
     except Exception as e:
