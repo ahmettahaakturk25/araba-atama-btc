@@ -447,7 +447,7 @@ else:
         row_drivers = driver_list[row_start: row_start + 3]
         cols = st.columns(len(row_drivers))
 
-        for col, (driver_idx, passenger_list) in zip(cols, row_drivers):
+        for col_idx, (col, (driver_idx, passenger_list)) in enumerate(zip(cols, row_drivers)):
             driver = df_geo.loc[driver_idx]
             d_lat, d_lng = driver["Lat"], driver["Lng"]
             d_name = driver["İsim Soyisim"]
@@ -506,9 +506,10 @@ else:
                                 unsafe_allow_html=True,
                             )
                         with btn_col:
-                            # Unique key: driver_idx, passenger_idx ve passenger'ın pozisyonu
+                            # Unique key: row_start, col_idx, driver_idx, passenger_idx ve pozisyon
                             passenger_position = passenger_list.index(p_idx)
-                            if st.button("✕", key=f"rm_p_{driver_idx}_{p_idx}_{passenger_position}", help="Yolcuyu çıkar"):
+                            unique_key = f"rm_p_{row_start}_{col_idx}_{driver_idx}_{p_idx}_{passenger_position}"
+                            if st.button("✕", key=unique_key, help="Yolcuyu çıkar"):
                                 assignments_edit[driver_idx].remove(p_idx)
                                 # Havuz otomatik güncellenecek (tum_atananlar'dan çıkacak)
                                 st.session_state["assignments_edit"] = assignments_edit
