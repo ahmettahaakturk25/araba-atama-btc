@@ -561,13 +561,28 @@ else:
                                 st.session_state["assignments_edit"] = assignments_edit
                                 st.rerun()
 
+    # ── Atanamamış Yolcular ──────────────────────────────────────────────────
     if unassigned_havuz:
         st.markdown("---")
-        with st.expander(f"❌ Atanamamış Yolcular ({len(unassigned_havuz)} kişi)"):
-            ua_df = df_geo.loc[unassigned_havuz][
-                ["İsim Soyisim", "İlçe", "Bölge Grubu"]
-            ].reset_index(drop=True)
-            st.dataframe(ua_df, use_container_width=True)
+        st.subheader(f"❌ Atanamamış Yolcular ({len(unassigned_havuz)} kişi)")
+        st.caption("Bu yolcular henüz bir araç sahibine atanmadı. Manuel olarak ekleyebilirsiniz.")
+        
+        # Her yolcuyu satır satır göster
+        for p_idx in unassigned_havuz:
+            p = df_geo.loc[p_idx]
+            p_name = p["İsim Soyisim"]
+            p_ilce = p["İlçe"]
+            p_bolge = p["Bölge Grubu"]
+            
+            # Kart görünümü
+            st.markdown(
+                f'<div style="background:#fff3cd;border:1px solid #ffc107;'
+                f'border-radius:8px;padding:10px 15px;margin:5px 0;">'
+                f'<b>👤 {p_name}</b><br>'
+                f'<small style="color:#666">📍 {p_ilce} · Bölge: {p_bolge}</small>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
 
     # ── Tamamla & İndir ──────────────────────────────────────────────────────
     st.markdown("---")
