@@ -589,31 +589,43 @@ def eslesenleri_bul(katilimci_df: pd.DataFrame, arac_df: pd.DataFrame) -> list[i
 def build_export_df(assignments_edit: dict, df_geo: pd.DataFrame, cost_matrix: dict) -> pd.DataFrame:
     """
     Atama sonuçlarını düz tablo formatına çevirir.
-    Her satır: Araç Sahibi | Plaka | Araç Sahibi İlçe | Yolcu | Yolcu İlçe | Mesafe (km)
+    Her satır: Araç Sahibi | Araç Sahibi İlçe | Araç Sahibi Posta Kodu | Yolcu 1 | Yolcu 1 İlçe | Yolcu 1 Posta Kodu | ... | Toplam Mesafe (km)
     """
     rows = []
     for driver_idx, passenger_list in assignments_edit.items():
         driver = df_geo.loc[driver_idx]
         d_name = driver["İsim Soyisim"]
         d_ilce = driver["İlçe"]
-        if not passenger_list:
-            rows.append({
-                "Araç Sahibi": d_name,
-                "Araç Sahibi İlçe": d_ilce,
-                "Yolcu": "—",
-                "Yolcu İlçe": "—",
-                "Mesafe (km)": "—",
-            })
-        for p_idx in passenger_list:
-            p = df_geo.loc[p_idx]
-            dist_km = cost_matrix.get((driver_idx, p_idx), 0) / 1000
-            rows.append({
-                "Araç Sahibi": d_name,
-                "Araç Sahibi İlçe": d_ilce,
-                "Yolcu": p["İsim Soyisim"],
-                "Yolcu İlçe": p["İlçe"],
-                "Mesafe (km)": round(dist_km, 1),
-            })
+        d_posta = driver.get("Posta Kodu", "")
+        
+        # Satır verisi
+        row = {
+            "Araç Sahibi": d_name,
+            "Araç Sahibi İlçe": d_ilce,
+            "Araç Sahibi Posta Kodu": d_posta,
+        }
+        
+        # Maksimum 3 yolcu
+        total_dist = 0
+        for i in range(3):
+            yolcu_no = i + 1
+            if i < len(passenger_list):
+                p_idx = passenger_list[i]
+                p = df_geo.loc[p_idx]
+                dist_km = cost_matrix.get((driver_idx, p_idx), 0) / 1000
+                total_dist += dist_km
+                
+                row[f"Yolcu {yolcu_no}"] = p["İsim Soyisim"]
+                row[f"Yolcu {yolcu_no} İlçe"] = p["İlçe"]
+                row[f"Yolcu {yolcu_no} Posta Kodu"] = p.get("Posta Kodu", "")
+            else:
+                row[f"Yolcu {yolcu_no}"] = "—"
+                row[f"Yolcu {yolcu_no} İlçe"] = "—"
+                row[f"Yolcu {yolcu_no} Posta Kodu"] = "—"
+        
+        row["Toplam Mesafe (km)"] = round(total_dist, 1) if total_dist > 0 else "—"
+        rows.append(row)
+    
     return pd.DataFrame(rows)
 
 
@@ -631,27 +643,33 @@ def export_to_excel(df_export: pd.DataFrame) -> bytes:
         # Başlık formatı
         header_fmt = wb.add_format({
             "bold": True, "bg_color": "#4472C4", "font_color": "white",
-            "border": 1, "align": "center",
+            "border": 1, "align": "center", "valign": "vcenter",
         })
-        driver_fmt = wb.add_format({"bg_color": "#D9E1F2", "border": 1})
-        normal_fmt = wb.add_format({"border": 1})
+        driver_fmt = wb.add_format({"bg_color": "#D9E1F2", "border": 1, "valign": "vcenter"})
+        normal_fmt = wb.add_format({"border": 1, "valign": "vcenter"})
 
-        # Sütun genişlikleri
-        ws.set_column("A:A", 28)
-        ws.set_column("B:B", 18)
-        ws.set_column("C:C", 28)
-        ws.set_column("D:D", 18)
-        ws.set_column("E:E", 14)
+        # Sütun genişlikleri - yeni format için
+        ws.set_column("A:A", 25)  # Araç Sahibi
+        ws.set_column("B:B", 18)  # Araç Sahibi İlçe
+        ws.set_column("C:C", 18)  # Araç Sahibi Posta Kodu
+        ws.set_column("D:D", 25)  # Yolcu 1
+        ws.set_column("E:E", 18)  # Yolcu 1 İlçe
+        ws.set_column("F:F", 18)  # Yolcu 1 Posta Kodu
+        ws.set_column("G:G", 25)  # Yolcu 2
+        ws.set_column("H:H", 18)  # Yolcu 2 İlçe
+        ws.set_column("I:I", 18)  # Yolcu 2 Posta Kodu
+        ws.set_column("J:J", 25)  # Yolcu 3
+        ws.set_column("K:K", 18)  # Yolcu 3 İlçe
+        ws.set_column("L:L", 18)  # Yolcu 3 Posta Kodu
+        ws.set_column("M:M", 16)  # Toplam Mesafe
 
         # Başlıkları yeniden yaz
         for col_num, col_name in enumerate(df_export.columns):
             ws.write(0, col_num, col_name, header_fmt)
 
-        # Satırları formatla
-        prev_driver = None
+        # Satırları formatla - zebra striping
         for row_num, row in enumerate(df_export.itertuples(index=False), start=1):
-            fmt = driver_fmt if row[0] != prev_driver else normal_fmt
-            prev_driver = row[0]
+            fmt = driver_fmt if row_num % 2 == 1 else normal_fmt
             for col_num, val in enumerate(row):
                 ws.write(row_num, col_num, val, fmt)
 
