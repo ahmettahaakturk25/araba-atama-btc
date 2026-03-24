@@ -455,9 +455,20 @@ else:
 
             with col:
                 with st.container(border=True):
-                    plaka_str = f" · 🚘 {plaka}" if plaka else ""
-                    st.markdown(f"### 🚗 {d_name}")
-                    st.caption(f"📍 {d_ilce} · {d_bolge}{plaka_str}")
+                    # Başlık satırı: İsim + Çarpı butonu
+                    header_col, remove_col = st.columns([5, 1])
+                    with header_col:
+                        plaka_str = f" · 🚘 {plaka}" if plaka else ""
+                        st.markdown(f"### 🚗 {d_name}")
+                        st.caption(f"📍 {d_ilce} · {d_bolge}{plaka_str}")
+                    with remove_col:
+                        st.markdown("<br>", unsafe_allow_html=True)  # Boşluk için
+                        if st.button("✕", key=f"rm_driver_{driver_idx}", help="Araç sahibini ve tüm yolcuları kaldır", type="secondary"):
+                            # Araç sahibini ve tüm yolcularını kaldır
+                            del assignments_edit[driver_idx]
+                            st.session_state["assignments_edit"] = assignments_edit
+                            st.success(f"🚗 {d_name} ve yolcuları kaldırıldı")
+                            st.rerun()
 
                     # Mevcut yolcular + çıkarma butonu
                     st.markdown("**Atanan Yolcular:**")
