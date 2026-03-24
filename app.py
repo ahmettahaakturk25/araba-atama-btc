@@ -464,10 +464,15 @@ else:
                     with remove_col:
                         st.markdown("<br>", unsafe_allow_html=True)  # Boşluk için
                         if st.button("✕", key=f"rm_driver_{driver_idx}", help="Araç sahibini ve tüm yolcuları kaldır", type="secondary"):
+                            # Yolcu sayısını al
+                            yolcu_sayisi = len(passenger_list)
                             # Araç sahibini ve tüm yolcularını kaldır
                             del assignments_edit[driver_idx]
                             st.session_state["assignments_edit"] = assignments_edit
-                            st.success(f"🚗 {d_name} ve yolcuları kaldırıldı")
+                            if yolcu_sayisi > 0:
+                                st.success(f"🚗 {d_name} ve {yolcu_sayisi} yolcu kaldırıldı. Yolcular 'Atanamamış Yolcular' bölümüne eklendi.")
+                            else:
+                                st.success(f"🚗 {d_name} kaldırıldı")
                             st.rerun()
 
                     # Mevcut yolcular + çıkarma butonu
