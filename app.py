@@ -418,9 +418,17 @@ else:
     # Atanmış yolcuların set'i
     tum_atananlar = {p for plist in assignments_edit.values() for p in plist}
     
-    # Havuz: başlangıçta atanamamış + şu an atanmamış tüm yolcular
+    # Aktif araç sahiplerinin set'i (assignments_edit'te key olarak bulunanlar)
+    aktif_arac_sahipleri = set(assignments_edit.keys())
+    
+    # Havuz: 
+    # 1. Tüm yolcular - atananlar
+    # 2. Kaldırılmış araç sahipleri (başlangıçta araç sahibiydi ama artık assignments_edit'te yok)
     tum_yolcular = set(df_geo[df_geo["Rol"] == "Yolcu"].index.tolist())
-    unassigned_havuz = list(tum_yolcular - tum_atananlar)
+    tum_arac_sahipleri = set(df_geo[df_geo["Rol"] == "Araç Sahibi"].index.tolist())
+    kaldirilmis_arac_sahipleri = tum_arac_sahipleri - aktif_arac_sahipleri
+    
+    unassigned_havuz = list((tum_yolcular - tum_atananlar) | kaldirilmis_arac_sahipleri)
 
     total_assigned = sum(len(p) for p in assignments_edit.values())
     total_dist_km = sum(
@@ -470,9 +478,9 @@ else:
                             del assignments_edit[driver_idx]
                             st.session_state["assignments_edit"] = assignments_edit
                             if yolcu_sayisi > 0:
-                                st.success(f"🚗 {d_name} ve {yolcu_sayisi} yolcu kaldırıldı. Yolcular 'Atanamamış Yolcular' bölümüne eklendi.")
+                                st.success(f"🚗 {d_name} ve {yolcu_sayisi} yolcu 'Atanamamış Yolcular' bölümüne eklendi. Artık yolcu olarak atayabilirsiniz.")
                             else:
-                                st.success(f"🚗 {d_name} kaldırıldı")
+                                st.success(f"🚗 {d_name} 'Atanamamış Yolcular' bölümüne eklendi. Artık yolcu olarak atayabilirsiniz.")
                             st.rerun()
 
                     # Mevcut yolcular + çıkarma butonu
