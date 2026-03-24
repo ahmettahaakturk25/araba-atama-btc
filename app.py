@@ -506,7 +506,9 @@ else:
                                 unsafe_allow_html=True,
                             )
                         with btn_col:
-                            if st.button("✕", key=f"rm_{driver_idx}_{p_idx}", help="Yolcuyu çıkar"):
+                            # Unique key: driver_idx, passenger_idx ve passenger'ın pozisyonu
+                            passenger_position = passenger_list.index(p_idx)
+                            if st.button("✕", key=f"rm_p_{driver_idx}_{p_idx}_{passenger_position}", help="Yolcuyu çıkar"):
                                 assignments_edit[driver_idx].remove(p_idx)
                                 # Havuz otomatik güncellenecek (tum_atananlar'dan çıkacak)
                                 st.session_state["assignments_edit"] = assignments_edit
