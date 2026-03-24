@@ -417,54 +417,79 @@ def optimize_assignments(
 def load_katilim_durumu(file) -> pd.DataFrame:
     """
     Katılım durumu Excel'ini okur.
-    Sütunlar: Adı | Katılım | Yanıt
-    "Red" olan kişileri döndürür.
+    
+    İki format desteklenir:
+    Format 1: Adı | Katılım | Yanıt (Yanıt="Red" olanlar döndürülür)
+    Format 2: Sadece Ad Soyad (tüm liste gelmeyen olarak kabul edilir)
+    
+    Önce "Sayfa1" sheet'ini dener, yoksa ilk sheet'i okur.
     
     Returns:
-        DataFrame: Adı, Katılım, Yanıt sütunları (sadece Red olanlar)
+        DataFrame: Adı, Yanıt sütunları (gelmeyen kişiler)
     """
     try:
-        df = pd.read_excel(file, header=0)
+        # Önce sheet isimlerini kontrol et
+        xl = pd.ExcelFile(file)
+        sheet_names = xl.sheet_names
+        
+        # "Sayfa1" varsa onu oku, yoksa ilk sheet'i oku
+        if "Sayfa1" in sheet_names:
+            df = pd.read_excel(file, sheet_name="Sayfa1", header=0)
+            logger.info("Katılım durumu 'Sayfa1' sheet'inden okundu")
+        else:
+            df = pd.read_excel(file, sheet_name=0, header=0)
+            logger.info("Katılım durumu ilk sheet'ten okundu")
     except Exception as e:
         raise Exception(f"Katılım durumu dosyası okunamadı: {e}")
     
     # Sütun adlarını normalize et
     df.columns = [str(c).strip() for c in df.columns]
     
-    # "Adı" veya "Ad" sütununu bul
+    # "Adı" veya "Ad Soyad" sütununu bul
     ad_col = None
     for col in df.columns:
-        if "ad" in col.lower() and "soyad" not in col.lower():
+        col_lower = col.lower()
+        if "ad" in col_lower or "isim" in col_lower:
             ad_col = col
             break
     
     if ad_col is None:
-        raise ValueError("Katılım durumu dosyasında 'Adı' sütunu bulunamadı")
+        raise ValueError("Katılım durumu dosyasında isim sütunu bulunamadı")
     
-    # "Yanıt" veya "Yanit" sütununu bul
+    # "Yanıt" sütunu var mı kontrol et
     yanit_col = None
     for col in df.columns:
         if "yan" in col.lower():
             yanit_col = col
             break
     
-    if yanit_col is None:
-        raise ValueError("Katılım durumu dosyasında 'Yanıt' sütunu bulunamadı")
+    # Format 1: Yanıt sütunu var - sadece Red olanları al
+    if yanit_col is not None:
+        df_clean = df[[ad_col, yanit_col]].copy()
+        df_clean.columns = ["Adı", "Yanıt"]
+        
+        # Boş satırları temizle
+        df_clean = df_clean.dropna(subset=["Adı"]).copy()
+        df_clean["Adı"] = df_clean["Adı"].astype(str).str.strip()
+        df_clean["Yanıt"] = df_clean["Yanıt"].fillna("").astype(str).str.strip()
+        
+        # Sadece "Red" olanları döndür
+        df_red = df_clean[df_clean["Yanıt"].str.lower() == "red"].copy()
+        logger.info(f"Katılım durumu (Format 1): {len(df_clean)} kişi, {len(df_red)} Red")
+        return df_red
     
-    # Sadece gerekli sütunları al
-    df_clean = df[[ad_col, yanit_col]].copy()
-    df_clean.columns = ["Adı", "Yanıt"]
-    
-    # Boş satırları temizle
-    df_clean = df_clean.dropna(subset=["Adı"]).copy()
-    df_clean["Adı"] = df_clean["Adı"].astype(str).str.strip()
-    df_clean["Yanıt"] = df_clean["Yanıt"].fillna("").astype(str).str.strip()
-    
-    # Sadece "Red" olanları döndür
-    df_red = df_clean[df_clean["Yanıt"].str.lower() == "red"].copy()
-    
-    logger.info(f"Katılım durumu: {len(df_clean)} kişi, {len(df_red)} Red")
-    return df_red
+    # Format 2: Sadece isim listesi - tüm liste gelmeyen
+    else:
+        df_clean = df[[ad_col]].copy()
+        df_clean.columns = ["Adı"]
+        
+        # Boş satırları temizle
+        df_clean = df_clean.dropna(subset=["Adı"]).copy()
+        df_clean["Adı"] = df_clean["Adı"].astype(str).str.strip()
+        df_clean["Yanıt"] = "Gelmiyor"  # Tüm liste gelmeyen
+        
+        logger.info(f"Katılım durumu (Format 2): {len(df_clean)} kişi (tümü gelmeyen)")
+        return df_clean
 
 
 def load_arac_listesi(file) -> pd.DataFrame:
