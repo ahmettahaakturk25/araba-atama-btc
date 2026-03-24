@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 
 from utils import (
     load_and_preprocess,
+    load_katilim_durumu,
     load_arac_listesi,
     eslesenleri_bul,
     eslesir_mi,
@@ -48,6 +49,7 @@ st.set_page_config(page_title="Araç-Yolcu Optimizasyon", page_icon="🚗", layo
 def init_state():
     defaults = {
         "df_raw": None, "df_active": None, "df_arac": None,
+        "df_katilim": None, "gelmeyen_set": set(),
         "df_with_roles": None, "df_geocoded": None,
         "cost_matrix": None, "unassigned_cm": [],
         "assignments": None, "unassigned_final": [],
@@ -114,6 +116,7 @@ if st.session_state["page"] == 1:
     st.title("📋 Katılımcı Listesi")
     st.caption("Excel dosyasını yükleyin, gelmeyecek kişileri işaretleyin.")
 
+    # Katılımcı listesi yükleme
     uploaded = st.file_uploader("Katılımcı listesi (.xlsx)", type=["xlsx"], key="uploader1")
     if uploaded:
         try:
@@ -123,6 +126,35 @@ if st.session_state["page"] == 1:
                 st.session_state[k] = None
             st.session_state["unassigned_cm"] = []
             st.session_state["unassigned_final"] = []
+        except Exception as e:
+            st.error(f"❌ {e}")
+
+    # Katılım durumu yükleme (opsiyonel)
+    st.markdown("---")
+    uploaded_katilim = st.file_uploader(
+        "📊 Katılım Durumu (.xlsx) - Opsiyonel",
+        type=["xlsx"],
+        key="uploader_katilim",
+        help="Red olan kişiler otomatik olarak 'Gelmiyor' işaretlenecek"
+    )
+    if uploaded_katilim:
+        try:
+            df_katilim = load_katilim_durumu(uploaded_katilim)
+            st.session_state["df_katilim"] = df_katilim
+            
+            # Red olanları gelmeyen set'ine ekle
+            if st.session_state["df_raw"] is not None:
+                red_isimler = set(df_katilim["Adı"].tolist())
+                # Katılımcı listesiyle eşleştir
+                gelmeyen_set = set()
+                for idx, row in st.session_state["df_raw"].iterrows():
+                    katilimci_isim = str(row["İsim Soyisim"])
+                    for red_isim in red_isimler:
+                        if eslesir_mi(katilimci_isim, red_isim):
+                            gelmeyen_set.add(katilimci_isim)
+                            break
+                st.session_state["gelmeyen_set"] = gelmeyen_set
+                st.success(f"✅ {len(df_katilim)} Red yanıt, {len(gelmeyen_set)} kişi eşleştirildi")
         except Exception as e:
             st.error(f"❌ {e}")
 
@@ -152,7 +184,10 @@ if st.session_state["page"] == 1:
     st.caption(f"{len(df_show)} kişi gösteriliyor")
 
     df_edit = df_show[["İsim Soyisim", "İlçe", "Posta Kodu", "Bölge Grubu"]].copy()
-    df_edit.insert(0, "Gelmiyor", False)
+    
+    # Katılım durumundan gelen Red'leri otomatik işaretle
+    gelmeyen_set = st.session_state.get("gelmeyen_set", set())
+    df_edit.insert(0, "Gelmiyor", df_edit["İsim Soyisim"].isin(gelmeyen_set))
 
     edited = st.data_editor(
         df_edit,
@@ -232,17 +267,45 @@ else:
 
     st.markdown("---")
 
-    # ── Manuel araç sahibi seçimi ────────────────────────────────────────────
+    # ── Manuel araç sahibi seçimi (data_editor ile) ──────────────────────────
     st.subheader("2️⃣ Araç Sahiplerini Onayla / Düzenle")
-    auto_isimler = [df_active.loc[i, "İsim Soyisim"] for i in auto_driver_indices]
-    tum_isimler = df_active["İsim Soyisim"].tolist()
-
-    secilen_isimler = st.multiselect(
-        "Araç sahipleri",
-        options=tum_isimler,
-        default=auto_isimler,
-        placeholder="İsim arayın veya listeden seçin...",
+    
+    # Otomatik eşleşenleri default olarak işaretle
+    auto_isimler_set = set([df_active.loc[i, "İsim Soyisim"] for i in auto_driver_indices])
+    
+    # Arama kutusu
+    search_driver = st.text_input("🔍 Araç sahibi ara", placeholder="İsim veya ilçe ara...")
+    
+    # Filtreleme
+    if search_driver:
+        mask = (
+            df_active["İsim Soyisim"].str.contains(search_driver, case=False, na=False) |
+            df_active["İlçe"].str.contains(search_driver, case=False, na=False)
+        )
+        df_driver_show = df_active[mask].copy()
+    else:
+        df_driver_show = df_active.copy()
+    
+    st.caption(f"{len(df_driver_show)} kişi gösteriliyor")
+    
+    # Data editor için hazırla
+    df_driver_edit = df_driver_show[["İsim Soyisim", "İlçe", "Bölge Grubu"]].copy()
+    df_driver_edit.insert(0, "Araç Sahibi", df_driver_edit["İsim Soyisim"].isin(auto_isimler_set))
+    
+    edited_drivers = st.data_editor(
+        df_driver_edit,
+        use_container_width=True,
+        height=400,
+        column_config={
+            "Araç Sahibi": st.column_config.CheckboxColumn("Araç Sahibi 🚗", default=False)
+        },
+        disabled=["İsim Soyisim", "İlçe", "Bölge Grubu"],
+        hide_index=True,
+        key="editor_drivers",
     )
+    
+    # Seçilen araç sahiplerini al
+    secilen_isimler = edited_drivers.loc[edited_drivers["Araç Sahibi"], "İsim Soyisim"].tolist()
 
     if not secilen_isimler:
         st.info("En az 1 araç sahibi seçin.")
@@ -344,9 +407,12 @@ else:
 
     assignments_edit = st.session_state["assignments_edit"]
 
-    # Atanmış yolcuların set'i (manuel ekleme için kullanılabilir havuz)
+    # Atanmış yolcuların set'i
     tum_atananlar = {p for plist in assignments_edit.values() for p in plist}
-    unassigned_havuz = [i for i in unassigned_final if i not in tum_atananlar]
+    
+    # Havuz: başlangıçta atanamamış + şu an atanmamış tüm yolcular
+    tum_yolcular = set(df_geo[df_geo["Rol"] == "Yolcu"].index.tolist())
+    unassigned_havuz = list(tum_yolcular - tum_atananlar)
 
     total_assigned = sum(len(p) for p in assignments_edit.values())
     total_dist_km = sum(
@@ -410,8 +476,7 @@ else:
                         with btn_col:
                             if st.button("✕", key=f"rm_{driver_idx}_{p_idx}", help="Yolcuyu çıkar"):
                                 assignments_edit[driver_idx].remove(p_idx)
-                                if p_idx not in unassigned_havuz:
-                                    unassigned_havuz.append(p_idx)
+                                # Havuz otomatik güncellenecek (tum_atananlar'dan çıkacak)
                                 st.session_state["assignments_edit"] = assignments_edit
                                 st.rerun()
 

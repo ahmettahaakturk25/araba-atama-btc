@@ -414,6 +414,59 @@ def optimize_assignments(
     return assignments, unassigned
 
 
+def load_katilim_durumu(file) -> pd.DataFrame:
+    """
+    Katılım durumu Excel'ini okur.
+    Sütunlar: Adı | Katılım | Yanıt
+    "Red" olan kişileri döndürür.
+    
+    Returns:
+        DataFrame: Adı, Katılım, Yanıt sütunları (sadece Red olanlar)
+    """
+    try:
+        df = pd.read_excel(file, header=0)
+    except Exception as e:
+        raise Exception(f"Katılım durumu dosyası okunamadı: {e}")
+    
+    # Sütun adlarını normalize et
+    df.columns = [str(c).strip() for c in df.columns]
+    
+    # "Adı" veya "Ad" sütununu bul
+    ad_col = None
+    for col in df.columns:
+        if "ad" in col.lower() and "soyad" not in col.lower():
+            ad_col = col
+            break
+    
+    if ad_col is None:
+        raise ValueError("Katılım durumu dosyasında 'Adı' sütunu bulunamadı")
+    
+    # "Yanıt" veya "Yanit" sütununu bul
+    yanit_col = None
+    for col in df.columns:
+        if "yan" in col.lower():
+            yanit_col = col
+            break
+    
+    if yanit_col is None:
+        raise ValueError("Katılım durumu dosyasında 'Yanıt' sütunu bulunamadı")
+    
+    # Sadece gerekli sütunları al
+    df_clean = df[[ad_col, yanit_col]].copy()
+    df_clean.columns = ["Adı", "Yanıt"]
+    
+    # Boş satırları temizle
+    df_clean = df_clean.dropna(subset=["Adı"]).copy()
+    df_clean["Adı"] = df_clean["Adı"].astype(str).str.strip()
+    df_clean["Yanıt"] = df_clean["Yanıt"].fillna("").astype(str).str.strip()
+    
+    # Sadece "Red" olanları döndür
+    df_red = df_clean[df_clean["Yanıt"].str.lower() == "red"].copy()
+    
+    logger.info(f"Katılım durumu: {len(df_clean)} kişi, {len(df_red)} Red")
+    return df_red
+
+
 def load_arac_listesi(file) -> pd.DataFrame:
     """
     Araç listesi Excel'ini okur ve temizler.

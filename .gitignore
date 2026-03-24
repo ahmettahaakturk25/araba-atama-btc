@@ -10,3 +10,4 @@ build/
 .streamlit/secrets.toml
 *.xlsx
 !sample_data.xlsx
+!katilim_durumu_test.xlsx
