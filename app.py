@@ -424,11 +424,16 @@ else:
     # Havuz: 
     # 1. Tüm yolcular - atananlar
     # 2. Kaldırılmış araç sahipleri (başlangıçta araç sahibiydi ama artık assignments_edit'te yok)
+    #    ANCAK sadece henüz başka bir araca atanmamışlar
     tum_yolcular = set(df_geo[df_geo["Rol"] == "Yolcu"].index.tolist())
     tum_arac_sahipleri = set(df_geo[df_geo["Rol"] == "Araç Sahibi"].index.tolist())
     kaldirilmis_arac_sahipleri = tum_arac_sahipleri - aktif_arac_sahipleri
     
-    unassigned_havuz = list((tum_yolcular - tum_atananlar) | kaldirilmis_arac_sahipleri)
+    # Kaldırılmış araç sahiplerinden henüz atanmayanlar
+    kaldirilmis_ve_atanmamis = kaldirilmis_arac_sahipleri - tum_atananlar
+    
+    unassigned_havuz = list((tum_yolcular - tum_atananlar) | kaldirilmis_ve_atanmamis)
+
 
     total_assigned = sum(len(p) for p in assignments_edit.values())
     total_dist_km = sum(
