@@ -506,10 +506,29 @@ else:
                         ekle_col, oneri_col = st.columns([3, 2])
 
                         with ekle_col:
-                            ekle_options = {
-                                f"{df_geo.loc[i, 'İsim Soyisim']} ({df_geo.loc[i, 'İlçe']})": i
-                                for i in unassigned_havuz
-                            }
+                            # Önce aynı bölge grubundakileri, sonra diğerlerini göster
+                            ayni_bolge = []
+                            diger_bolge = []
+                            
+                            for i in unassigned_havuz:
+                                p_bolge = df_geo.loc[i, "Bölge Grubu"]
+                                if p_bolge == d_bolge:
+                                    ayni_bolge.append(i)
+                                else:
+                                    diger_bolge.append(i)
+                            
+                            # Dropdown options - önce aynı bölge (★ ile işaretle)
+                            ekle_options = {}
+                            for i in ayni_bolge:
+                                isim = df_geo.loc[i, "İsim Soyisim"]
+                                ilce = df_geo.loc[i, "İlçe"]
+                                ekle_options[f"★ {isim} ({ilce})"] = i
+                            
+                            for i in diger_bolge:
+                                isim = df_geo.loc[i, "İsim Soyisim"]
+                                ilce = df_geo.loc[i, "İlçe"]
+                                ekle_options[f"{isim} ({ilce})"] = i
+                            
                             secim = st.selectbox(
                                 "Elle seç",
                                 options=["—"] + list(ekle_options.keys()),
@@ -527,8 +546,17 @@ else:
                             if st.button(
                                 f"🔄 Yeni Öneri",
                                 key=f"oneri_{driver_idx}",
-                                help=f"{bos_slot} boş slot için en yakın yolcuları öner",
+                                help=f"{bos_slot} boş slot için aynı bölgeden en yakın yolcuları öner",
                             ):
+                                # Önce aynı bölge grubundaki yolcuları filtrele
+                                ayni_bolge_havuz = [
+                                    i for i in unassigned_havuz 
+                                    if df_geo.loc[i, "Bölge Grubu"] == d_bolge
+                                ]
+                                
+                                # Eğer aynı bölgede yeterli yolcu yoksa, tüm havuzu kullan
+                                hedef_havuz = ayni_bolge_havuz if ayni_bolge_havuz else unassigned_havuz
+                                
                                 # Havuzdaki yolcuları araç sahibine mesafeye göre sırala
                                 # cost_matrix'te varsa onu kullan, yoksa Haversine
                                 import math
@@ -543,7 +571,7 @@ else:
                                     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
 
                                 skorlar = []
-                                for p_i in unassigned_havuz:
+                                for p_i in hedef_havuz:
                                     if (driver_idx, p_i) in cost_matrix:
                                         dist = cost_matrix[(driver_idx, p_i)]
                                     else:
