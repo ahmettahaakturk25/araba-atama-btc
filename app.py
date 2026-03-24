@@ -135,7 +135,7 @@ if st.session_state["page"] == 1:
         "📊 Katılım Durumu (.xlsx) - Opsiyonel",
         type=["xlsx"],
         key="uploader_katilim",
-        help="Red olan kişiler otomatik olarak 'Gelmiyor' işaretlenecek"
+        help="Sadece 'Red' yanıt verenler otomatik olarak 'Gelmiyor' işaretlenecek. Listede olmayanlar varsayılan olarak 'Gelecek' kabul edilir."
     )
     if uploaded_katilim:
         try:
@@ -154,7 +154,15 @@ if st.session_state["page"] == 1:
                             gelmeyen_set.add(katilimci_isim)
                             break
                 st.session_state["gelmeyen_set"] = gelmeyen_set
-                st.success(f"✅ {len(df_katilim)} Red yanıt, {len(gelmeyen_set)} kişi eşleştirildi")
+                
+                # Bilgilendirme mesajı
+                toplam_katilimci = len(st.session_state["df_raw"])
+                red_sayisi = len(df_katilim)
+                eslesme_sayisi = len(gelmeyen_set)
+                listede_olmayan = toplam_katilimci - eslesme_sayisi
+                
+                st.success(f"✅ {red_sayisi} Red yanıt bulundu, {eslesme_sayisi} kişi katılımcı listesiyle eşleştirildi")
+                st.info(f"ℹ️ Katılım durumu listesinde olmayan {listede_olmayan} kişi varsayılan olarak 'Gelecek' kabul edildi")
         except Exception as e:
             st.error(f"❌ {e}")
 
