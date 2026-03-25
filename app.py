@@ -14,6 +14,7 @@ from utils import (
     load_and_preprocess,
     load_katilim_durumu,
     load_arac_listesi,
+    load_assignments_from_excel,
     eslesenleri_bul,
     eslesir_mi,
     assign_roles_manual,
@@ -327,8 +328,42 @@ else:
 
     st.markdown("---")
 
+    # ── Önceki Atamayı Yükle (Opsiyonel) ─────────────────────────────────────
+    st.subheader("3️⃣ Önceki Atamayı Yükle (Opsiyonel)")
+    st.caption("Daha önce export ettiğiniz Excel'i yükleyerek kaldığınız yerden devam edebilirsiniz.")
+    
+    uploaded_assignments = st.file_uploader(
+        "📥 Atama Excel'i (.xlsx)",
+        type=["xlsx"],
+        key="uploader_assignments",
+        help="Daha önce indirdiğiniz 'arac_yolcu_atamalari.xlsx' dosyasını yükleyin"
+    )
+    
+    if uploaded_assignments:
+        try:
+            # Önce geocoding yapılmış olmalı
+            if st.session_state["df_geocoded"] is None:
+                st.warning("⚠️ Önce geocoding yapılmalı. 'Geocoding + Optimizasyon Çalıştır' butonuna tıklayın.")
+            else:
+                df_geo = st.session_state["df_geocoded"]
+                loaded_assignments = load_assignments_from_excel(uploaded_assignments, df_geo)
+                
+                # Session state'e kaydet
+                st.session_state["assignments"] = loaded_assignments
+                st.session_state["assignments_edit"] = {k: list(v) for k, v in loaded_assignments.items()}
+                st.session_state["assignments_edit_base"] = id(loaded_assignments)
+                st.session_state["unassigned_final"] = []  # Boş liste, havuz otomatik hesaplanacak
+                
+                st.success(f"✅ {len(loaded_assignments)} araç sahibi ve atamaları yüklendi!")
+                st.info("Aşağıda atama kartlarını görebilir ve düzenleyebilirsiniz.")
+                st.rerun()
+        except Exception as e:
+            st.error(f"❌ Yükleme hatası: {e}")
+
+    st.markdown("---")
+
     # ── Optimizasyon ─────────────────────────────────────────────────────────
-    st.subheader("3️⃣ Optimizasyonu Çalıştır")
+    st.subheader("4️⃣ Optimizasyonu Çalıştır")
     if not api_key:
         st.error("❌ GOOGLE_MAPS_API_KEY eksik.")
         st.info("""
@@ -400,7 +435,7 @@ else:
         st.stop()
 
     st.markdown("---")
-    st.subheader("4️⃣ Atama Sonuçları")
+    st.subheader("5️⃣ Atama Sonuçları")
 
     assignments = st.session_state["assignments"]
     unassigned_final = st.session_state["unassigned_final"]
@@ -635,7 +670,7 @@ else:
 
     # ── Tamamla & İndir ──────────────────────────────────────────────────────
     st.markdown("---")
-    st.subheader("5️⃣ Tamamla & İndir")
+    st.subheader("6️⃣ Tamamla & İndir")
     st.caption("Tüm düzenlemeler tamamlandıktan sonra listeyi indirin.")
 
     from utils import build_export_df, export_to_excel, export_to_pdf

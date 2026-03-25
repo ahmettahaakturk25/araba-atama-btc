@@ -676,6 +676,54 @@ def export_to_excel(df_export: pd.DataFrame) -> bytes:
     return buf.getvalue()
 
 
+def load_assignments_from_excel(file, df_geo: pd.DataFrame) -> dict:
+    """
+    Export edilmiş Excel'den atamaları geri yükler.
+    
+    Excel formatı:
+    Araç Sahibi | Araç Sahibi İlçe | Araç Sahibi Posta Kodu | Yolcu 1 | ... | Toplam Mesafe
+    
+    Returns:
+        dict: {driver_idx: [passenger_idx, ...]}
+    """
+    try:
+        df = pd.read_excel(file, header=0)
+    except Exception as e:
+        raise Exception(f"Excel dosyası okunamadı: {e}")
+    
+    assignments = {}
+    
+    for _, row in df.iterrows():
+        driver_name = str(row["Araç Sahibi"]).strip()
+        
+        # Araç sahibini df_geo'da bul
+        driver_match = df_geo[df_geo["İsim Soyisim"].str.strip() == driver_name]
+        if driver_match.empty:
+            logger.warning(f"Araç sahibi bulunamadı: {driver_name}")
+            continue
+        
+        driver_idx = driver_match.index[0]
+        passengers = []
+        
+        # 3 yolcuyu kontrol et
+        for i in range(1, 4):
+            yolcu_col = f"Yolcu {i}"
+            if yolcu_col in row and pd.notna(row[yolcu_col]) and str(row[yolcu_col]).strip() != "—":
+                passenger_name = str(row[yolcu_col]).strip()
+                
+                # Yolcuyu df_geo'da bul
+                passenger_match = df_geo[df_geo["İsim Soyisim"].str.strip() == passenger_name]
+                if not passenger_match.empty:
+                    passengers.append(passenger_match.index[0])
+                else:
+                    logger.warning(f"Yolcu bulunamadı: {passenger_name}")
+        
+        assignments[driver_idx] = passengers
+    
+    logger.info(f"Excel'den {len(assignments)} araç sahibi ve atamaları yüklendi")
+    return assignments
+
+
 def export_to_pdf(df_export: pd.DataFrame) -> bytes:
     """DataFrame'i PDF formatında bytes olarak döndürür."""
     import io
